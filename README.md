@@ -26,8 +26,12 @@ Lightweight clipboard manager for Linux. Keeps 12-hour history of text, links, a
 git clone https://github.com/olajoao/sticky-one.git
 cd sticky_one
 cargo build --release
+mkdir -p ~/.local/bin
 cp target/release/syo ~/.local/bin/
 ```
+
+> Ensure `~/.local/bin` is in your PATH. Add to your shell rc if needed:
+> `export PATH="$HOME/.local/bin:$PATH"`
 
 ### From git
 ```bash
