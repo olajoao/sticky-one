@@ -79,8 +79,10 @@ impl Entry {
                     .split_whitespace()
                     .collect::<Vec<_>>()
                     .join(" ");
+                // Safe truncation at char boundary
                 if collapsed.len() > max_len {
-                    format!("{}...", &collapsed[..max_len])
+                    let truncated: String = collapsed.chars().take(max_len).collect();
+                    format!("{}...", truncated)
                 } else {
                     collapsed
                 }

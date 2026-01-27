@@ -22,24 +22,12 @@ pub fn read() -> Result<ClipboardContent> {
 }
 
 fn read_wayland() -> Result<ClipboardContent> {
-    // Try text first
-    let output = Command::new("wl-paste")
-        .args(["--no-newline"])
-        .output();
-
-    if let Ok(out) = output {
-        if out.status.success() && !out.stdout.is_empty() {
-            let text = String::from_utf8_lossy(&out.stdout).into_owned();
-            return Ok(ClipboardContent::Text(text));
-        }
-    }
-
-    // Try image (PNG)
+    // Try image first (before text, to avoid binary data as text)
     let output = Command::new("wl-paste")
         .args(["--no-newline", "--type", "image/png"])
         .output();
 
-    if let Ok(out) = output {
+    if let Ok(out) = &output {
         if out.status.success() && !out.stdout.is_empty() {
             let size = out.stdout.len();
             if size > MAX_IMAGE_SIZE_BYTES {
@@ -48,7 +36,20 @@ fn read_wayland() -> Result<ClipboardContent> {
                     max: MAX_IMAGE_SIZE_BYTES,
                 });
             }
-            return Ok(ClipboardContent::Image(out.stdout));
+            return Ok(ClipboardContent::Image(out.stdout.clone()));
+        }
+    }
+
+    // Try text explicitly
+    let output = Command::new("wl-paste")
+        .args(["--no-newline", "--type", "text/plain"])
+        .output();
+
+    if let Ok(out) = output {
+        if out.status.success() && !out.stdout.is_empty() {
+            if let Ok(text) = String::from_utf8(out.stdout) {
+                return Ok(ClipboardContent::Text(text));
+            }
         }
     }
 
@@ -56,24 +57,12 @@ fn read_wayland() -> Result<ClipboardContent> {
 }
 
 fn read_x11() -> Result<ClipboardContent> {
-    // Try text with xclip
-    let output = Command::new("xclip")
-        .args(["-selection", "clipboard", "-o"])
-        .output();
-
-    if let Ok(out) = output {
-        if out.status.success() && !out.stdout.is_empty() {
-            let text = String::from_utf8_lossy(&out.stdout).into_owned();
-            return Ok(ClipboardContent::Text(text));
-        }
-    }
-
-    // Try image with xclip
+    // Try image first
     let output = Command::new("xclip")
         .args(["-selection", "clipboard", "-t", "image/png", "-o"])
         .output();
 
-    if let Ok(out) = output {
+    if let Ok(out) = &output {
         if out.status.success() && !out.stdout.is_empty() {
             let size = out.stdout.len();
             if size > MAX_IMAGE_SIZE_BYTES {
@@ -82,7 +71,20 @@ fn read_x11() -> Result<ClipboardContent> {
                     max: MAX_IMAGE_SIZE_BYTES,
                 });
             }
-            return Ok(ClipboardContent::Image(out.stdout));
+            return Ok(ClipboardContent::Image(out.stdout.clone()));
+        }
+    }
+
+    // Try text
+    let output = Command::new("xclip")
+        .args(["-selection", "clipboard", "-o"])
+        .output();
+
+    if let Ok(out) = output {
+        if out.status.success() && !out.stdout.is_empty() {
+            if let Ok(text) = String::from_utf8(out.stdout) {
+                return Ok(ClipboardContent::Text(text));
+            }
         }
     }
 
