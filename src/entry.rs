@@ -74,10 +74,15 @@ impl Entry {
         match self.content_type {
             ContentType::Text | ContentType::Link => {
                 let text = self.content.as_deref().unwrap_or("");
-                if text.len() > max_len {
-                    format!("{}...", &text[..max_len])
+                // Collapse whitespace/newlines to single space
+                let collapsed: String = text
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                if collapsed.len() > max_len {
+                    format!("{}...", &collapsed[..max_len])
                 } else {
-                    text.to_string()
+                    collapsed
                 }
             }
             ContentType::Image => {
