@@ -23,7 +23,7 @@ Lightweight clipboard manager for Linux. Keeps 12-hour history of text, links, a
 
 ### From source
 ```bash
-git clone https://github.com/YOUR_USER/sticky_one.git
+git clone https://github.com/olajoao/sticky-one.git
 cd sticky_one
 cargo build --release
 cp target/release/syo ~/.local/bin/
@@ -31,7 +31,7 @@ cp target/release/syo ~/.local/bin/
 
 ### From git
 ```bash
-cargo install --git https://github.com/YOUR_USER/sticky_one
+cargo install --git https://github.com/olajoao/sticky-one
 ```
 
 ## Usage
