@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand};
 use colored::Colorize;
+use daemonize::Daemonize;
 use sticky_one::clipboard::write_entry;
+use sticky_one::config::{data_dir, pid_path};
 use sticky_one::daemon::{is_running, stop, Daemon};
 use sticky_one::entry::ContentType;
 use sticky_one::error::StickyError;
@@ -84,9 +86,22 @@ async fn run_daemon() -> sticky_one::Result<()> {
         return Err(StickyError::DaemonRunning(pid));
     }
 
+    // Ensure data dir exists
+    std::fs::create_dir_all(data_dir())?;
+
     println!("{}", "Starting daemon...".green());
-    let mut daemon = Daemon::new()?;
-    daemon.run().await
+
+    let daemonize = Daemonize::new()
+        .pid_file(pid_path())
+        .working_directory(data_dir());
+
+    match daemonize.start() {
+        Ok(_) => {
+            let mut daemon = Daemon::new()?;
+            daemon.run().await
+        }
+        Err(e) => Err(StickyError::Daemon(e.to_string())),
+    }
 }
 
 fn cmd_stop() -> sticky_one::Result<()> {

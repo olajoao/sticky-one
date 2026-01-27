@@ -17,6 +17,9 @@ pub enum StickyError {
     #[error("Daemon not running")]
     DaemonNotRunning,
 
+    #[error("Daemon error: {0}")]
+    Daemon(String),
+
     #[error("Entry not found: {0}")]
     NotFound(i64),
 

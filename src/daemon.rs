@@ -20,7 +20,6 @@ impl Daemon {
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        self.write_pid()?;
         self.storage.cleanup_old()?;
 
         let mut poll = interval(Duration::from_millis(POLL_INTERVAL_MS));
@@ -61,15 +60,6 @@ impl Daemon {
         // Periodic cleanup
         self.storage.cleanup_old()?;
 
-        Ok(())
-    }
-
-    fn write_pid(&self) -> Result<()> {
-        let path = pid_path();
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        fs::write(&path, std::process::id().to_string())?;
         Ok(())
     }
 
