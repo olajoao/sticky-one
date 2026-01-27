@@ -30,8 +30,12 @@ mkdir -p ~/.local/bin
 cp target/release/syo ~/.local/bin/
 ```
 
-> Ensure `~/.local/bin` is in your PATH. Add to your shell rc if needed:
-> `export PATH="$HOME/.local/bin:$PATH"`
+⚠️ **Add `~/.local/bin` to your PATH** (required for `syo` command to work):
+```bash
+# Add to ~/.bashrc or ~/.zshrc:
+export PATH="$HOME/.local/bin:$PATH"
+```
+Then restart your terminal.
 
 ### From git
 ```bash
