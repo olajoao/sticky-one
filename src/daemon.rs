@@ -1,22 +1,31 @@
 use crate::clipboard::read_as_entry;
-use crate::config::{pid_path, POLL_INTERVAL_MS};
+use crate::config::{pid_path, Config, POLL_INTERVAL_MS};
 use crate::error::{Result, StickyError};
+use crate::hotkey::HotkeyListener;
 use crate::storage::Storage;
 use std::fs;
+use std::process::Command;
 use std::time::Duration;
 use tokio::signal;
+use tokio::sync::mpsc;
 use tokio::time::interval;
 
 pub struct Daemon {
     storage: Storage,
     last_hash: Option<String>,
+    config: Config,
 }
 
 impl Daemon {
     pub fn new() -> Result<Self> {
         let storage = Storage::open()?;
         let last_hash = storage.get_latest_hash()?;
-        Ok(Self { storage, last_hash })
+        let config = Config::load();
+        Ok(Self {
+            storage,
+            last_hash,
+            config,
+        })
     }
 
     pub async fn run(&mut self) -> Result<()> {
@@ -24,12 +33,25 @@ impl Daemon {
 
         let mut poll = interval(Duration::from_millis(POLL_INTERVAL_MS));
 
+        // Setup hotkey listener
+        let (hotkey_tx, mut hotkey_rx) = mpsc::channel::<()>(1);
+        let hotkey_listener = HotkeyListener::new(&self.config.hotkey)?;
+
+        tokio::spawn(async move {
+            if let Err(e) = hotkey_listener.listen(hotkey_tx).await {
+                eprintln!("Hotkey listener error: {}", e);
+            }
+        });
+
         loop {
             tokio::select! {
                 _ = poll.tick() => {
                     if let Err(e) = self.poll_clipboard() {
                         eprintln!("Clipboard poll error: {}", e);
                     }
+                }
+                Some(()) = hotkey_rx.recv() => {
+                    self.spawn_popup();
                 }
                 _ = signal::ctrl_c() => {
                     self.cleanup()?;
@@ -39,6 +61,13 @@ impl Daemon {
         }
 
         Ok(())
+    }
+
+    fn spawn_popup(&self) {
+        // Get current executable path
+        if let Ok(exe) = std::env::current_exe() {
+            let _ = Command::new(exe).arg("popup").spawn();
+        }
     }
 
     fn poll_clipboard(&mut self) -> Result<()> {

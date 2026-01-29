@@ -6,9 +6,10 @@ use sticky_one::config::{data_dir, pid_path};
 use sticky_one::daemon::{is_running, stop, Daemon};
 use sticky_one::entry::ContentType;
 use sticky_one::error::StickyError;
+use sticky_one::gui::run_popup;
 use sticky_one::Storage;
+use tabled::settings::{Modify, Style, Width, object::Columns};
 use tabled::{Table, Tabled};
-use tabled::settings::{Style, Modify, object::Columns, Width};
 
 #[derive(Parser)]
 #[command(name = "syo")]
@@ -47,6 +48,8 @@ enum Commands {
     },
     /// Clear all history
     Clear,
+    /// Open GUI popup (for testing)
+    Popup,
 }
 
 #[derive(Tabled)]
@@ -61,19 +64,32 @@ struct EntryRow {
     preview: String,
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let cli = Cli::parse();
 
-    let result = match cli.command {
-        Commands::Daemon => run_daemon().await,
-        Commands::Stop => cmd_stop(),
-        Commands::Status => cmd_status(),
-        Commands::List { limit } => cmd_list(limit),
-        Commands::Get { id } => cmd_get(id),
-        Commands::Search { query, limit } => cmd_search(&query, limit),
-        Commands::Clear => cmd_clear(),
-    };
+    // Daemon must fork BEFORE tokio runtime starts
+    if matches!(cli.command, Commands::Daemon) {
+        if let Err(e) = run_daemon() {
+            eprintln!("{} {}", "Error:".red().bold(), e);
+            std::process::exit(1);
+        }
+        return;
+    }
+
+    // All other commands use tokio
+    let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
+    let result = rt.block_on(async {
+        match cli.command {
+            Commands::Daemon => unreachable!(),
+            Commands::Stop => cmd_stop(),
+            Commands::Status => cmd_status(),
+            Commands::List { limit } => cmd_list(limit),
+            Commands::Get { id } => cmd_get(id),
+            Commands::Search { query, limit } => cmd_search(&query, limit),
+            Commands::Clear => cmd_clear(),
+            Commands::Popup => cmd_popup(),
+        }
+    });
 
     if let Err(e) = result {
         eprintln!("{} {}", "Error:".red().bold(), e);
@@ -81,14 +97,12 @@ async fn main() {
     }
 }
 
-async fn run_daemon() -> sticky_one::Result<()> {
+fn run_daemon() -> sticky_one::Result<()> {
     if let Some(pid) = is_running() {
         return Err(StickyError::DaemonRunning(pid));
     }
 
-    // Ensure data dir exists
     std::fs::create_dir_all(data_dir())?;
-
     println!("{}", "Starting daemon...".green());
 
     let daemonize = Daemonize::new()
@@ -97,8 +111,13 @@ async fn run_daemon() -> sticky_one::Result<()> {
 
     match daemonize.start() {
         Ok(_) => {
-            let mut daemon = Daemon::new()?;
-            daemon.run().await
+            // Create tokio runtime AFTER daemonizing
+            let rt = tokio::runtime::Runtime::new()
+                .map_err(|e| StickyError::Daemon(e.to_string()))?;
+            rt.block_on(async {
+                let mut daemon = Daemon::new()?;
+                daemon.run().await
+            })
         }
         Err(e) => Err(StickyError::Daemon(e.to_string())),
     }
@@ -189,4 +208,8 @@ fn cmd_clear() -> sticky_one::Result<()> {
     let count = storage.clear()?;
     println!("{} {} entries", "Cleared".yellow(), count);
     Ok(())
+}
+
+fn cmd_popup() -> sticky_one::Result<()> {
+    run_popup().map_err(|e| StickyError::Daemon(e.to_string()))
 }

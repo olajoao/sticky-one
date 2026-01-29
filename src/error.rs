@@ -25,6 +25,9 @@ pub enum StickyError {
 
     #[error("Image too large: {size} bytes (max: {max})")]
     ImageTooLarge { size: usize, max: usize },
+
+    #[error("Hotkey error: {0}")]
+    Hotkey(String),
 }
 
 pub type Result<T> = std::result::Result<T, StickyError>;

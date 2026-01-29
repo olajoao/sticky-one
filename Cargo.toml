@@ -10,7 +10,7 @@ path = "src/main.rs"
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "time", "sync"] }
 chrono = { version = "0.4", features = ["serde"] }
 directories = "5"
 serde = { version = "1", features = ["derive"] }
@@ -21,3 +21,9 @@ thiserror = "1"
 tabled = "0.17"
 colored = "2"
 daemonize = "0.5"
+
+# GUI + Hotkey
+evdev = { version = "0.13", features = ["tokio"] }
+iced = { version = "0.14", features = ["tokio"] }
+iced_layershell = "0.14"
+toml = "0.8"
