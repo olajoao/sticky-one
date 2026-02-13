@@ -1,0 +1,40 @@
+# Maintainer: olajoao
+pkgname=syo
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Lightweight clipboard manager for Linux"
+arch=('x86_64')
+url="https://github.com/olajoao/sticky-one"
+license=('MIT')
+depends=('gcc-libs')
+optdepends=(
+    'wl-clipboard: Wayland clipboard support'
+    'xclip: X11 clipboard support'
+)
+makedepends=('cargo')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cd "sticky-one-$pkgver"
+    cargo build --release --locked
+}
+
+package() {
+    cd "sticky-one-$pkgver"
+    install -Dm755 "target/release/syo" "$pkgdir/usr/bin/syo"
+    install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 "contrib/syo.service" "$pkgdir/usr/lib/systemd/user/syo.service"
+
+    # Completions
+    if [ -d completions ]; then
+        install -Dm644 "completions/syo.bash" "$pkgdir/usr/share/bash-completion/completions/syo"
+        install -Dm644 "completions/syo.zsh" "$pkgdir/usr/share/zsh/site-functions/_syo"
+        install -Dm644 "completions/syo.fish" "$pkgdir/usr/share/fish/vendor_completions.d/syo.fish"
+    fi
+
+    # Man page
+    if [ -f man/syo.1 ]; then
+        install -Dm644 "man/syo.1" "$pkgdir/usr/share/man/man1/syo.1"
+    fi
+}

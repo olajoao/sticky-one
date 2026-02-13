@@ -175,15 +175,16 @@ fn view(state: &PopupState) -> Element<'_, Message> {
         .padding(10)
         .size(16);
 
-    let entries_list: Column<Message> = state
-        .filtered
-        .iter()
-        .enumerate()
-        .fold(Column::new().spacing(2), |col, (i, &entry_idx)| {
-            let entry = &state.entries[entry_idx];
-            let is_selected = i == state.selected;
-            col.push(entry_row(entry, is_selected))
-        });
+    let entries_list: Column<Message> =
+        state
+            .filtered
+            .iter()
+            .enumerate()
+            .fold(Column::new().spacing(2), |col, (i, &entry_idx)| {
+                let entry = &state.entries[entry_idx];
+                let is_selected = i == state.selected;
+                col.push(entry_row(entry, is_selected))
+            });
 
     let content = column![
         search_input,
@@ -225,14 +226,16 @@ fn entry_row(entry: &Entry, selected: bool) -> Element<'static, Message> {
     };
 
     let content = row![
-        container(type_badge).padding(4).style(move |_| container::Style {
-            background: Some(iced::Background::Color(Color::from_rgb(0.2, 0.2, 0.25))),
-            border: iced::Border {
-                radius: 4.0.into(),
+        container(type_badge)
+            .padding(4)
+            .style(move |_| container::Style {
+                background: Some(iced::Background::Color(Color::from_rgb(0.2, 0.2, 0.25))),
+                border: iced::Border {
+                    radius: 4.0.into(),
+                    ..Default::default()
+                },
                 ..Default::default()
-            },
-            ..Default::default()
-        }),
+            }),
         preview,
     ]
     .spacing(10)

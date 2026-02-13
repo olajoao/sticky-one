@@ -1,8 +1,10 @@
 use crate::clipboard::read_as_entry;
-use crate::config::{pid_path, Config, POLL_INTERVAL_MS};
+use crate::config::{log_path, pid_path, Config, POLL_INTERVAL_MS};
 use crate::error::{Result, StickyError};
 use crate::hotkey::HotkeyListener;
 use crate::storage::Storage;
+use log::{error, warn};
+use simplelog::{ConfigBuilder, LevelFilter, WriteLogger};
 use std::fs;
 use std::process::Command;
 use std::time::Duration;
@@ -18,6 +20,20 @@ pub struct Daemon {
 
 impl Daemon {
     pub fn new() -> Result<Self> {
+        // Init file logging
+        let log_file = log_path();
+        if let Some(parent) = log_file.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        if let Ok(file) = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_file)
+        {
+            let log_config = ConfigBuilder::new().set_time_format_rfc3339().build();
+            let _ = WriteLogger::init(LevelFilter::Info, log_config, file);
+        }
+
         let storage = Storage::open()?;
         let last_hash = storage.get_latest_hash()?;
         let config = Config::load();
@@ -39,7 +55,7 @@ impl Daemon {
 
         tokio::spawn(async move {
             if let Err(e) = hotkey_listener.listen(hotkey_tx).await {
-                eprintln!("Hotkey listener error: {}", e);
+                error!("Hotkey listener error: {}", e);
             }
         });
 
@@ -47,7 +63,7 @@ impl Daemon {
             tokio::select! {
                 _ = poll.tick() => {
                     if let Err(e) = self.poll_clipboard() {
-                        eprintln!("Clipboard poll error: {}", e);
+                        warn!("Clipboard poll error: {}", e);
                     }
                 }
                 Some(()) = hotkey_rx.recv() => {
@@ -140,7 +156,7 @@ pub fn stop() -> Result<()> {
         Command::new("kill")
             .args([&pid.to_string()])
             .status()
-            .map_err(|e| StickyError::Io(e))?;
+            .map_err(StickyError::Io)?;
     }
 
     #[cfg(windows)]
@@ -149,7 +165,7 @@ pub fn stop() -> Result<()> {
         Command::new("taskkill")
             .args(["/PID", &pid.to_string(), "/F"])
             .status()
-            .map_err(|e| StickyError::Io(e))?;
+            .map_err(StickyError::Io)?;
     }
 
     // Remove PID file

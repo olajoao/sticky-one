@@ -35,18 +35,14 @@ pub fn config_path() -> PathBuf {
     config_dir().join(CONFIG_FILE)
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+pub fn log_path() -> PathBuf {
+    data_dir().join("daemon.log")
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub hotkey: HotkeyConfig,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            hotkey: HotkeyConfig::default(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -172,5 +168,61 @@ impl Config {
         }
         let content = toml::to_string_pretty(self).unwrap_or_default();
         fs::write(path, content)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_config_has_hotkey() {
+        let c = Config::default();
+        assert_eq!(c.hotkey.key, "C");
+        assert!(c.hotkey.modifiers.contains(&"Alt".to_string()));
+        assert!(c.hotkey.modifiers.contains(&"Shift".to_string()));
+    }
+
+    #[test]
+    fn parse_key_letters() {
+        assert_eq!(parse_key("A"), Some(KeyCode::KEY_A));
+        assert_eq!(parse_key("z"), Some(KeyCode::KEY_Z));
+    }
+
+    #[test]
+    fn parse_key_invalid() {
+        assert_eq!(parse_key("INVALID"), None);
+    }
+
+    #[test]
+    fn parse_modifier_variants() {
+        assert_eq!(parse_modifier("alt"), Some(KeyCode::KEY_LEFTALT));
+        assert_eq!(parse_modifier("Shift"), Some(KeyCode::KEY_LEFTSHIFT));
+        assert_eq!(parse_modifier("ctrl"), Some(KeyCode::KEY_LEFTCTRL));
+        assert_eq!(parse_modifier("super"), Some(KeyCode::KEY_LEFTMETA));
+        assert_eq!(parse_modifier("garbage"), None);
+    }
+
+    #[test]
+    fn hotkey_config_modifier_keys() {
+        let hk = HotkeyConfig::default();
+        let mods = hk.modifier_keys();
+        assert!(mods.contains(&KeyCode::KEY_LEFTALT));
+        assert!(mods.contains(&KeyCode::KEY_LEFTSHIFT));
+    }
+
+    #[test]
+    fn hotkey_config_trigger_key() {
+        let hk = HotkeyConfig::default();
+        assert_eq!(hk.trigger_key(), Some(KeyCode::KEY_C));
+    }
+
+    #[test]
+    fn config_toml_roundtrip() {
+        let c = Config::default();
+        let serialized = toml::to_string_pretty(&c).unwrap();
+        let deserialized: Config = toml::from_str(&serialized).unwrap();
+        assert_eq!(deserialized.hotkey.key, c.hotkey.key);
+        assert_eq!(deserialized.hotkey.modifiers, c.hotkey.modifiers);
     }
 }

@@ -2,6 +2,13 @@
 name = "sticky_one"
 version = "0.1.0"
 edition = "2021"
+description = "Lightweight clipboard manager for Linux"
+license = "MIT"
+repository = "https://github.com/olajoao/sticky-one"
+homepage = "https://github.com/olajoao/sticky-one"
+readme = "README.md"
+keywords = ["clipboard", "manager", "wayland", "x11", "linux"]
+categories = ["command-line-utilities"]
 
 [[bin]]
 name = "syo"
@@ -27,3 +34,10 @@ evdev = { version = "0.13", features = ["tokio"] }
 iced = { version = "0.14", features = ["tokio"] }
 iced_layershell = "0.14"
 toml = "0.8"
+log = "0.4"
+simplelog = "0.12"
+
+[build-dependencies]
+clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
+clap_mangen = "0.2"

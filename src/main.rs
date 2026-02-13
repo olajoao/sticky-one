@@ -1,18 +1,19 @@
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use daemonize::Daemonize;
-use sticky_one::clipboard::write_entry;
+use sticky_one::clipboard::{check_deps, write_entry};
 use sticky_one::config::{data_dir, pid_path};
 use sticky_one::daemon::{is_running, stop, Daemon};
 use sticky_one::entry::ContentType;
 use sticky_one::error::StickyError;
 use sticky_one::gui::run_popup;
 use sticky_one::Storage;
-use tabled::settings::{Modify, Style, Width, object::Columns};
+use tabled::settings::{object::Columns, Modify, Style, Width};
 use tabled::{Table, Tabled};
 
 #[derive(Parser)]
 #[command(name = "syo")]
+#[command(version)]
 #[command(about = "Clipboard manager with 12-hour history")]
 struct Cli {
     #[command(subcommand)]
@@ -48,7 +49,7 @@ enum Commands {
     },
     /// Clear all history
     Clear,
-    /// Open GUI popup (for testing)
+    /// Open GUI popup
     Popup,
 }
 
@@ -98,6 +99,8 @@ fn main() {
 }
 
 fn run_daemon() -> sticky_one::Result<()> {
+    check_deps()?;
+
     if let Some(pid) = is_running() {
         return Err(StickyError::DaemonRunning(pid));
     }
@@ -112,8 +115,8 @@ fn run_daemon() -> sticky_one::Result<()> {
     match daemonize.start() {
         Ok(_) => {
             // Create tokio runtime AFTER daemonizing
-            let rt = tokio::runtime::Runtime::new()
-                .map_err(|e| StickyError::Daemon(e.to_string()))?;
+            let rt =
+                tokio::runtime::Runtime::new().map_err(|e| StickyError::Daemon(e.to_string()))?;
             rt.block_on(async {
                 let mut daemon = Daemon::new()?;
                 daemon.run().await

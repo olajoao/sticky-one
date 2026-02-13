@@ -1,0 +1,34 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist
+          cp target/release/syo dist/
+          cp -r completions dist/ 2>/dev/null || true
+          cp -r man dist/ 2>/dev/null || true
+          tar -czf syo-linux-x86_64.tar.gz -C dist .
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: syo-linux-x86_64.tar.gz
+          generate_release_notes: true

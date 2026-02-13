@@ -16,6 +16,24 @@ impl Storage {
         }
 
         let conn = Connection::open(&path)?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if path.exists() {
+                let perms = fs::Permissions::from_mode(0o600);
+                fs::set_permissions(&path, perms)?;
+            }
+        }
+
+        let storage = Self { conn };
+        storage.init_schema()?;
+        Ok(storage)
+    }
+
+    #[cfg(test)]
+    pub fn open_in_memory() -> Result<Self> {
+        let conn = Connection::open_in_memory()?;
         let storage = Self { conn };
         storage.init_schema()?;
         Ok(storage)
@@ -133,11 +151,104 @@ impl Storage {
 fn row_to_entry(row: &rusqlite::Row) -> Entry {
     Entry {
         id: row.get(0).unwrap_or(0),
-        content_type: ContentType::from_str(row.get::<_, String>(1).unwrap_or_default().as_str())
+        content_type: ContentType::parse(row.get::<_, String>(1).unwrap_or_default().as_str())
             .unwrap_or(ContentType::Text),
         content: row.get(2).ok(),
         image_data: row.get(3).ok(),
         hash: row.get(4).unwrap_or_default(),
         created_at: row.get(5).unwrap_or(0),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entry::Entry;
+
+    fn make_text_entry(text: &str) -> Entry {
+        Entry::new_text(text.to_string())
+    }
+
+    #[test]
+    fn insert_and_get_by_id() {
+        let s = Storage::open_in_memory().unwrap();
+        let entry = make_text_entry("hello");
+        let id = s.insert(&entry).unwrap();
+        let got = s.get_by_id(id).unwrap();
+        assert_eq!(got.content.as_deref(), Some("hello"));
+        assert_eq!(got.id, id);
+    }
+
+    #[test]
+    fn list_returns_newest_first() {
+        let s = Storage::open_in_memory().unwrap();
+        s.insert(&make_text_entry("first")).unwrap();
+        s.insert(&make_text_entry("second")).unwrap();
+        let entries = s.list(10).unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].content.as_deref(), Some("second"));
+    }
+
+    #[test]
+    fn search_matches_substring() {
+        let s = Storage::open_in_memory().unwrap();
+        s.insert(&make_text_entry("foo bar baz")).unwrap();
+        s.insert(&make_text_entry("unrelated")).unwrap();
+        let results = s.search("bar", 10).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].content.as_deref(), Some("foo bar baz"));
+    }
+
+    #[test]
+    fn clear_removes_all() {
+        let s = Storage::open_in_memory().unwrap();
+        s.insert(&make_text_entry("a")).unwrap();
+        s.insert(&make_text_entry("b")).unwrap();
+        let deleted = s.clear().unwrap();
+        assert_eq!(deleted, 2);
+        assert_eq!(s.count().unwrap(), 0);
+    }
+
+    #[test]
+    fn count_tracks_inserts() {
+        let s = Storage::open_in_memory().unwrap();
+        assert_eq!(s.count().unwrap(), 0);
+        s.insert(&make_text_entry("x")).unwrap();
+        assert_eq!(s.count().unwrap(), 1);
+    }
+
+    #[test]
+    fn get_latest_hash() {
+        let s = Storage::open_in_memory().unwrap();
+        assert!(s.get_latest_hash().unwrap().is_none());
+        let entry = make_text_entry("test");
+        let expected_hash = entry.hash.clone();
+        s.insert(&entry).unwrap();
+        assert_eq!(s.get_latest_hash().unwrap().unwrap(), expected_hash);
+    }
+
+    #[test]
+    fn cleanup_old_removes_expired() {
+        let s = Storage::open_in_memory().unwrap();
+        let mut old_entry = make_text_entry("old");
+        old_entry.created_at = chrono::Utc::now().timestamp() - (RETENTION_HOURS * 3600) - 100;
+        s.insert(&old_entry).unwrap();
+        s.insert(&make_text_entry("new")).unwrap();
+        let deleted = s.cleanup_old().unwrap();
+        assert_eq!(deleted, 1);
+        assert_eq!(s.count().unwrap(), 1);
+    }
+
+    #[test]
+    fn dedup_by_hash() {
+        let s = Storage::open_in_memory().unwrap();
+        let e1 = make_text_entry("same");
+        let e2 = make_text_entry("same");
+        assert_eq!(e1.hash, e2.hash);
+        s.insert(&e1).unwrap();
+        s.insert(&e2).unwrap();
+        // Both inserted (dedup is caller responsibility), but hashes match
+        assert_eq!(s.count().unwrap(), 2);
+        assert_eq!(s.get_latest_hash().unwrap().unwrap(), e1.hash);
     }
 }

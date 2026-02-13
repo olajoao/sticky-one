@@ -28,6 +28,12 @@ pub enum StickyError {
 
     #[error("Hotkey error: {0}")]
     Hotkey(String),
+
+    #[error("Missing dependency: {0}. Install it and try again.")]
+    MissingDep(String),
+
+    #[error("Invalid image: {0}")]
+    InvalidImage(String),
 }
 
 pub type Result<T> = std::result::Result<T, StickyError>;

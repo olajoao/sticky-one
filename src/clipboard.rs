@@ -3,6 +3,8 @@ use crate::entry::Entry;
 use crate::error::{Result, StickyError};
 use std::process::Command;
 
+const PNG_MAGIC: &[u8] = b"\x89PNG";
+
 pub enum ClipboardContent {
     Text(String),
     Image(Vec<u8>),
@@ -11,6 +13,39 @@ pub enum ClipboardContent {
 
 fn is_wayland() -> bool {
     std::env::var("WAYLAND_DISPLAY").is_ok()
+}
+
+/// Check that required clipboard tools are installed
+pub fn check_deps() -> Result<()> {
+    if is_wayland() {
+        for cmd in ["wl-paste", "wl-copy"] {
+            if Command::new("which")
+                .arg(cmd)
+                .output()
+                .map(|o| !o.status.success())
+                .unwrap_or(true)
+            {
+                return Err(StickyError::MissingDep(format!(
+                    "{cmd} (install wl-clipboard)"
+                )));
+            }
+        }
+    } else if Command::new("which")
+        .arg("xclip")
+        .output()
+        .map(|o| !o.status.success())
+        .unwrap_or(true)
+    {
+        return Err(StickyError::MissingDep("xclip".into()));
+    }
+    Ok(())
+}
+
+fn validate_png(data: &[u8]) -> Result<()> {
+    if data.len() < 4 || &data[..4] != PNG_MAGIC {
+        return Err(StickyError::InvalidImage("not a valid PNG".into()));
+    }
+    Ok(())
 }
 
 pub fn read() -> Result<ClipboardContent> {
@@ -36,6 +71,7 @@ fn read_wayland() -> Result<ClipboardContent> {
                     max: MAX_IMAGE_SIZE_BYTES,
                 });
             }
+            validate_png(&out.stdout)?;
             return Ok(ClipboardContent::Image(out.stdout.clone()));
         }
     }
@@ -71,6 +107,7 @@ fn read_x11() -> Result<ClipboardContent> {
                     max: MAX_IMAGE_SIZE_BYTES,
                 });
             }
+            validate_png(&out.stdout)?;
             return Ok(ClipboardContent::Image(out.stdout.clone()));
         }
     }
@@ -114,7 +151,9 @@ fn write_text_wayland(text: &str) -> Result<()> {
             .map_err(|e| StickyError::Clipboard(e.to_string()))?;
     }
 
-    child.wait().map_err(|e| StickyError::Clipboard(e.to_string()))?;
+    child
+        .wait()
+        .map_err(|e| StickyError::Clipboard(e.to_string()))?;
     Ok(())
 }
 
@@ -134,7 +173,9 @@ fn write_text_x11(text: &str) -> Result<()> {
             .map_err(|e| StickyError::Clipboard(e.to_string()))?;
     }
 
-    child.wait().map_err(|e| StickyError::Clipboard(e.to_string()))?;
+    child
+        .wait()
+        .map_err(|e| StickyError::Clipboard(e.to_string()))?;
     Ok(())
 }
 
@@ -162,7 +203,9 @@ fn write_image_wayland(png_data: &[u8]) -> Result<()> {
             .map_err(|e| StickyError::Clipboard(e.to_string()))?;
     }
 
-    child.wait().map_err(|e| StickyError::Clipboard(e.to_string()))?;
+    child
+        .wait()
+        .map_err(|e| StickyError::Clipboard(e.to_string()))?;
     Ok(())
 }
 
@@ -182,7 +225,9 @@ fn write_image_x11(png_data: &[u8]) -> Result<()> {
             .map_err(|e| StickyError::Clipboard(e.to_string()))?;
     }
 
-    child.wait().map_err(|e| StickyError::Clipboard(e.to_string()))?;
+    child
+        .wait()
+        .map_err(|e| StickyError::Clipboard(e.to_string()))?;
     Ok(())
 }
 
