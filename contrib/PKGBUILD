@@ -26,15 +26,18 @@ package() {
     install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
     install -Dm644 "contrib/syo.service" "$pkgdir/usr/lib/systemd/user/syo.service"
 
+    # Find build script output
+    _out=$(find target/release/build -path '*/sticky_one-*/out' -type d | head -1)
+
     # Completions
-    if [ -d completions ]; then
-        install -Dm644 "completions/syo.bash" "$pkgdir/usr/share/bash-completion/completions/syo"
-        install -Dm644 "completions/syo.zsh" "$pkgdir/usr/share/zsh/site-functions/_syo"
-        install -Dm644 "completions/syo.fish" "$pkgdir/usr/share/fish/vendor_completions.d/syo.fish"
+    if [ -d "$_out/completions" ]; then
+        install -Dm644 "$_out/completions/syo.bash" "$pkgdir/usr/share/bash-completion/completions/syo"
+        install -Dm644 "$_out/completions/_syo" "$pkgdir/usr/share/zsh/site-functions/_syo"
+        install -Dm644 "$_out/completions/syo.fish" "$pkgdir/usr/share/fish/vendor_completions.d/syo.fish"
     fi
 
     # Man page
-    if [ -f man/syo.1 ]; then
-        install -Dm644 "man/syo.1" "$pkgdir/usr/share/man/man1/syo.1"
+    if [ -f "$_out/man/syo.1" ]; then
+        install -Dm644 "$_out/man/syo.1" "$pkgdir/usr/share/man/man1/syo.1"
     fi
 }

@@ -36,7 +36,7 @@ enum Commands {
 }
 
 fn main() {
-    let out = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let out = PathBuf::from(std::env::var("OUT_DIR").unwrap());
 
     // Shell completions
     let comp_dir = out.join("completions");

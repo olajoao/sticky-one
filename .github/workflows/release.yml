@@ -21,10 +21,11 @@ jobs:
 
       - name: Collect artifacts
         run: |
-          mkdir -p dist
+          mkdir -p dist/completions dist/man
           cp target/release/syo dist/
-          cp -r completions dist/ 2>/dev/null || true
-          cp -r man dist/ 2>/dev/null || true
+          OUT=$(find target/release/build -path '*/sticky_one-*/out' -type d | head -1)
+          cp "$OUT"/completions/* dist/completions/ 2>/dev/null || true
+          cp "$OUT"/man/* dist/man/ 2>/dev/null || true
           tar -czf syo-linux-x86_64.tar.gz -C dist .
 
       - name: Create GitHub release

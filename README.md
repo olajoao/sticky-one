@@ -100,17 +100,22 @@ key = "C"
 
 ## Shell completions
 
-Completions are generated at build time in the `completions/` directory.
+Completions are generated at build time inside `target/`. After `cargo build --release`:
 
 ```bash
+OUT=$(find target/release/build -path '*/sticky_one-*/out' -type d | head -1)
+
 # Bash
-cp completions/syo.bash ~/.local/share/bash-completion/completions/syo
+cp "$OUT/completions/syo.bash" ~/.local/share/bash-completion/completions/syo
 
 # Zsh
-cp completions/_syo ~/.local/share/zsh/site-functions/_syo
+cp "$OUT/completions/_syo" ~/.local/share/zsh/site-functions/_syo
 
 # Fish
-cp completions/syo.fish ~/.config/fish/completions/syo.fish
+cp "$OUT/completions/syo.fish" ~/.config/fish/completions/syo.fish
+
+# Man page
+cp "$OUT/man/syo.1" ~/.local/share/man/man1/syo.1
 ```
 
 ## Storage
